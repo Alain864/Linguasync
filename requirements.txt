@@ -1,0 +1,28 @@
+# Core Framework
+fastapi==0.109.0
+uvicorn==0.27.0
+streamlit==1.31.0
+
+# OpenAI for LLM and Embeddings
+openai==1.10.0
+
+# Vector Database (Local)
+chromadb==0.4.22
+
+# Subtitle Parsing
+pysrt==1.1.2
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# HTTP Requests
+requests==2.31.0
+httpx==0.26.0
+
+# Data Processing
+pandas==2.2.0
+numpy==1.26.3
+
+# Japanese Text Processing (Simple approach for Stage 0)
+# Note: For production, you'd want MeCab, but this keeps setup simple
+regex==2023.12.25
