@@ -1,0 +1,159 @@
+# ============================================================================
+# LinguaSync Stage 1 - Docker Compose Configuration
+# For local development and testing
+# ============================================================================
+#
+# USAGE:
+#   1. Create .env file with: OPENAI_API_KEY=your-key-here
+#   2. Run: docker-compose up
+#   3. Access:
+#      - API: http://localhost:8000
+#      - Frontend: http://localhost:8501
+#      - API Docs: http://localhost:8000/docs
+#
+# COMMANDS:
+#   Start:     docker-compose up
+#   Stop:      docker-compose down
+#   Rebuild:   docker-compose up --build
+#   View logs: docker-compose logs -f
+#
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # FastAPI Backend Service
+  # ============================================================================
+  api:
+    # Build from local Dockerfile
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    container_name: linguasync-api
+    
+    # Expose API on port 8000
+    ports:
+      - "8000:8000"
+    
+    # Environment variables
+    # OPENAI_API_KEY is read from .env file
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ENVIRONMENT=development
+    
+    # Volume mounts for development
+    # This allows hot-reloading when code changes
+    volumes:
+      # Mount source code
+      - ./api_v2.py:/app/api_v2.py
+      - ./rag_engine_v2.py:/app/rag_engine_v2.py
+      - ./learning_generator.py:/app/learning_generator.py
+      - ./subtitle_processor_v2.py:/app/subtitle_processor_v2.py
+      
+      # Mount data directories
+      # IMPORTANT: Make sure these exist locally
+      - ./data:/app/data
+      - ./chroma_db_v2:/app/chroma_db_v2
+    
+    # Override default command to enable auto-reload
+    command: uvicorn api_v2:app --host 0.0.0.0 --port 8000 --reload
+    
+    # Health check configuration
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s  # Give it 60s to start up
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Internal network
+    networks:
+      - linguasync-network
+
+  # ============================================================================
+  # Streamlit Frontend Service
+  # ============================================================================
+  frontend:
+    # Use official Python image
+    image: python:3.12-slim
+    
+    container_name: linguasync-frontend
+    
+    # Expose Streamlit on port 8501
+    ports:
+      - "8501:8501"
+    
+    # Environment variables
+    # Point to the API service
+    environment:
+      - API_BASE_URL=http://api:8000
+    
+    # Volume mounts
+    volumes:
+      - ./app_v2.py:/app/app_v2.py
+      - ./requirements-stage1.txt:/app/requirements.txt
+    
+    working_dir: /app
+    
+    # Install dependencies and run Streamlit
+    # Note: This installs on every start - fine for dev, but slow
+    command: >
+      sh -c "pip install --quiet streamlit requests &&
+             streamlit run app_v2.py --server.address 0.0.0.0"
+    
+    # Wait for API to be ready
+    depends_on:
+      api:
+        condition: service_healthy
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Internal network
+    networks:
+      - linguasync-network
+
+# ============================================================================
+# Optional: Nginx Reverse Proxy (Commented Out)
+# Uncomment this section for production-like setup with SSL
+# ============================================================================
+#
+#   nginx:
+#     image: nginx:alpine
+#     container_name: linguasync-nginx
+#     ports:
+#       - "80:80"
+#       - "443:443"
+#     volumes:
+#       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+#       - ./ssl:/etc/nginx/ssl:ro  # SSL certificates
+#     depends_on:
+#       - api
+#       - frontend
+#     networks:
+#       - linguasync-network
+#     restart: unless-stopped
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  linguasync-network:
+    driver: bridge
+    name: linguasync-network
+
+# ============================================================================
+# Volumes (Optional - for persistent data)
+# ============================================================================
+# Uncomment if you want Docker-managed volumes instead of bind mounts
+#
+# volumes:
+#   vector-db:
+#     name: linguasync-vector-db
+#   subtitle-data:
+#     name: linguasync-data

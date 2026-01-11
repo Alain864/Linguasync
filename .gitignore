@@ -170,3 +170,4 @@ db/
 # Or more specifically if your persist_directory is named differently
 chroma/
 vectorstore/
+data/subtitles/

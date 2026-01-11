@@ -1,0 +1,46 @@
+# LinguaSync Stage 1 Requirements
+
+# Core Framework
+fastapi==0.109.0
+uvicorn==0.27.0
+streamlit==1.31.0
+
+# OpenAI for LLM and Embeddings
+openai==1.10.0
+
+# Vector Database (Local for now, will migrate to OpenSearch)
+chromadb==0.4.22
+
+# Subtitle Parsing
+pysrt==1.1.2
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# HTTP Requests
+requests==2.31.0
+httpx==0.26.0
+
+# Data Processing
+pandas==2.2.0
+numpy==1.26.3
+
+# Japanese Text Processing
+regex==2023.12.25
+
+# Japanese Tokenization (OPTIONAL but recommended)
+# Install MeCab system library first, then:
+# mecab-python3==1.0.6
+# 
+# On Mac: brew install mecab mecab-ipadic
+# On Ubuntu: sudo apt-get install mecab libmecab-dev mecab-ipadic-utf8
+# On Windows: Download from https://github.com/ikegami-yukino/mecab/releases
+#
+# If MeCab is not available, the system will use fallback tokenization
+
+# AWS SDK (for Stage 1 AWS deployment)
+boto3==1.34.34
+botocore==1.34.34
+
+# For future OpenSearch integration
+opensearch-py==2.4.2
