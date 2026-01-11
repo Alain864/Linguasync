@@ -145,3 +145,14 @@ Once Stage 0 is validated:
 - Stage 3: Content library scaling
 - Stage 4: User profiles & progress
 - Stage 5: Spanish language support
+
+
+withouth docker
+streamlit run app.py
+uvicorn api:app --reload --port 8000
+
+mit docker-compose
+Access:
+#      - API: http://localhost:8000
+#      - Frontend: http://localhost:8501
+#      - API Docs: http://localhost:8000/docs
