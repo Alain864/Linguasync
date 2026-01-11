@@ -148,6 +148,7 @@ Once Stage 0 is validated:
 
 
 withouth docker
+uvicorn api:app --reload --port 8000
 streamlit run app.py
 uvicorn api:app --reload --port 8000
 
