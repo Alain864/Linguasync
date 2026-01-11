@@ -147,10 +147,12 @@ Once Stage 0 is validated:
 - Stage 5: Spanish language support
 
 
-withouth docker
+withouth docker API
 uvicorn api:app --reload --port 8000
+
+Streamlit
 streamlit run app.py
-uvicorn api:app --reload --port 8000
+
 
 mit docker-compose
 Access:
