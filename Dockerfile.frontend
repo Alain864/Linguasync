@@ -1,0 +1,23 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install Streamlit and dependencies
+RUN pip install --no-cache-dir streamlit==1.31.0 requests
+
+# Copy Streamlit configuration
+COPY .streamlit/ /app/.streamlit/
+
+# Copy frontend code
+COPY app_v2.py .
+
+# Expose Streamlit port
+EXPOSE 8501
+
+# Set environment for headless mode
+ENV STREAMLIT_SERVER_HEADLESS=true
+ENV STREAMLIT_SERVER_ENABLE_CORS=false
+ENV STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
+
+# Run Streamlit with specific settings
+CMD ["streamlit", "run", "app_v2.py", "--server.address", "0.0.0.0", "--server.port", "8501", "--server.headless", "true"]

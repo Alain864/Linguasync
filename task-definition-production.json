@@ -1,0 +1,41 @@
+{
+  "family": "linguasync-api-production",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::992382843355:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::992382843355:role/linguasyncTaskRolex",
+  "containerDefinitions": [
+    {
+      "name": "linguasync-api",
+      "image": "992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-api-production:latest",
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "ENVIRONMENT",
+          "value": "production"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "OPENAI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:992382843355:secret:linguasync/openai-api-key"
+        }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

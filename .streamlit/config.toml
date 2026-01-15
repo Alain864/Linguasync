@@ -1,0 +1,10 @@
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+port = 8501
+baseUrlPath = "/app"
+
+[browser]
+gatherUsageStats = false
+serverAddress = "0.0.0.0"

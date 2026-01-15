@@ -1,0 +1,34 @@
+{
+  "family": "linguasync-frontend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::992382843355:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "linguasync-frontend",
+      "image": "992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-frontend:v3",
+      "portMappings": [
+        {
+          "containerPort": 8501,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "API_BASE_URL",
+          "value": "http://linguasync-alb-2085313274.us-east-1.elb.amazonaws.com"
+        }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8501/app || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}
