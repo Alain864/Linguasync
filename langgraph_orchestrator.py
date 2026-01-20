@@ -384,11 +384,14 @@ Respond ONLY with valid JSON (no markdown, no code blocks):
         """
         logger.info(f"🚀 Generating learning package for: {episode_id}")
         
-        # Simplified workflow for specific episode
         try:
+            # Search for the episode using a real query embedding
+            search_query = f"episode {episode_id}"
+            query_embedding = self.rag.create_embedding(search_query)
+            
             # Get episode metadata from OpenSearch
             results = self.rag.opensearch.search(
-                query_vector=[0] * 1536,  # Dummy vector
+                query_vector=query_embedding,
                 filters={"type": "episode", "episode_id": episode_id},
                 size=1
             )
