@@ -33,3 +33,9 @@ if __name__ == "__main__":
     print(f"Active buses near stop {MONITORING_REF}:")
     for bus in buses:
         print(f"Route {bus['line']} to {bus['destination']}: ({bus['lat']}, {bus['lon']})")
+
+
+#linguasync-stage0 % echo $AWS_ACCOUNT_ID
+#992382843355
+#linguasync-stage0 % echo $AWS_REGION
+#us-east-1

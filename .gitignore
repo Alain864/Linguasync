@@ -167,9 +167,15 @@ data/documents/
 
 
 chroma_db/
+chroma_db_v2/
 db/
 *.bin
 # Or more specifically if your persist_directory is named differently
 chroma/
 vectorstore/
 data/subtitles/
+
+
+
+
+
