@@ -153,39 +153,44 @@ User Query: {state.get('query', 'Looking for appropriate content')}
 Available Episodes:
 {episodes_summary}
 
-Task: Select the single best episode and explain why in 2-3 sentences. Consider:
-1. Level appropriateness
-2. Engagement factor
-3. Learning value
+Task: Select the single best episode (1-5) and explain why in 2-3 sentences.
 
-Respond with JSON:
-{{
-    "selected_index": <0-4>,
-    "reasoning": "<your explanation>"
-}}
-"""
+Respond ONLY with valid JSON (no markdown, no code blocks):
+{{"selected_index": 0, "reasoning": "your explanation here"}}"""
             
             response = self.openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
-                max_tokens=200
+                max_tokens=200,
+                response_format={"type": "json_object"}
             )
             
             # Parse response
             import json
-            result = json.loads(response.choices[0].message.content)
+            content = response.choices[0].message.content.strip()
+            
+            # Clean any potential markdown
+            content = content.replace('```json', '').replace('```', '').strip()
+            
+            result = json.loads(content)
             selected_idx = result.get('selected_index', 0)
             
+            # Ensure index is valid
+            if selected_idx >= len(state['matched_episodes']):
+                selected_idx = 0
+            
             state['selected_episode'] = state['matched_episodes'][selected_idx]
-            state['recommendation_text'] = result.get('reasoning', '')
+            state['recommendation_text'] = result.get('reasoning', 'Selected based on level match.')
             state['step'] = 'episode_selected'
             
             logger.info(f"   ✅ Selected: {state['selected_episode']['title']}")
         
         except Exception as e:
             logger.error(f"   ❌ Error selecting episode: {e}")
-            state['selected_episode'] = state['matched_episodes'][0]  # Fallback to first
+            # Fallback: just pick the first one
+            state['selected_episode'] = state['matched_episodes'][0]
+            state['recommendation_text'] = f"Recommended {state['selected_episode']['title']} based on your {state['user_level']} level."
             state['errors'] = state.get('errors', []) + [f"Selection error: {e}"]
         
         return state
