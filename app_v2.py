@@ -1,5 +1,5 @@
 """
-Streamlit Frontend V2 for LinguaSync - Stage 1
+Streamlit Frontend V2 for SemanticTutor - Stage 1
 
 New features over Stage 0:
 1. Anime library browser
@@ -26,7 +26,7 @@ API_BASE_URL = os.environ.get('API_BASE_URL', 'http://localhost:8000')
 
 # Page configuration
 st.set_page_config(
-    page_title="LinguaSync V2 - Japanese Learning",
+    page_title="SemanticTutor - Japanese Learning",
     page_icon="🎌",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -171,7 +171,7 @@ def get_learning_package(episode_id: str, user_level: str) -> Optional[Dict]:
 
 def render_header():
     """Render main header"""
-    st.markdown('<div class="main-header">🎌 LinguaSync V2</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🎌 SemanticTutor</div>', unsafe_allow_html=True)
     st.markdown(
         '<div class="sub-header">AI-Powered Japanese Learning Content Matcher</div>',
         unsafe_allow_html=True
@@ -183,7 +183,7 @@ def render_header():
 
 def render_sidebar():
     """Render sidebar with stats and navigation"""
-    st.sidebar.title("📊 Content Library")
+    st.sidebar.title("📖 Content Library")
     
     # API Health Check
     if check_api_health():
@@ -222,6 +222,13 @@ def render_sidebar():
         
     else:
         st.sidebar.warning("⚠️ Content library not initialized")
+    
+    # Copyright footer at the bottom
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(
+        '<div style="text-align: center; font-size: 0.8rem; color: #888;">© 2026 Alain Cl</div>',
+        unsafe_allow_html=True
+    )
 
 def render_episode_card(episode: Dict, user_level: str, show_anime_badge: bool = True):
     """Render an episode card with enhanced metadata"""
@@ -492,7 +499,7 @@ def main():
         else:
             # Welcome message
             st.info("""
-            👋 **Welcome to LinguaSync V2!**
+            👋 **Welcome to SemanticTutor!**
             
             **New in Stage 1:**
             - 🎌 Browse content by anime series

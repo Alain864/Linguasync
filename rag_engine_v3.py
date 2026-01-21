@@ -454,35 +454,57 @@ class RAGEngineV3:
         return episodes[:n_results]
     
     def search_by_anime(self, anime_name: str, level: Optional[str] = None) -> List[Dict]:
-        """Find all episodes of a specific anime"""
-        search_text = f"{anime_name} anime episodes"
-        query_embedding = self.create_embedding(search_text)
+        """Find all episodes of a specific anime - FIXED to use proper text search"""
+        try:
+            # Use match_all with post-filter since anime_name is a keyword field
+            # We need to get all episodes and filter in Python
+            query = {
+                "size": 500,  # Get more results to filter
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"term": {"type": "episode"}}
+                        ]
+                    }
+                }
+            }
+            
+            if level:
+                query["query"]["bool"]["must"].append({"term": {"level": level}})
+            
+            results = self.opensearch.client.search(
+                index=self.opensearch.index_name,
+                body=query
+            )
+            
+            # Filter episodes in Python (case-insensitive matching)
+            episodes = []
+            search_name = anime_name.lower().replace(' ', '').replace('_', '')
+            
+            for hit in results['hits']['hits']:
+                source = hit['_source']
+                db_name = source['anime_name'].lower().replace(' ', '').replace('_', '')
+                
+                # Check if the anime names match (fuzzy)
+                if search_name in db_name or db_name in search_name:
+                    episodes.append({
+                        'episode_id': source['episode_id'],
+                        'anime_name': source['anime_name'],
+                        'season': source.get('season'),
+                        'episode_number': source['episode_number'],
+                        'title': source['title'],
+                        'level': source['level'],
+                        'total_lines': source.get('total_lines', 0),
+                        'vocab_count': source.get('vocab_count', 0)
+                    })
+            
+            episodes.sort(key=lambda x: (x.get('season') or 0, x['episode_number']))
+            logger.info(f"Found {len(episodes)} episodes for {anime_name}")
+            return episodes
         
-        filters = {"type": "episode", "anime_name": anime_name}
-        if level:
-            filters["level"] = level
-        
-        results = self.opensearch.search(
-            query_vector=query_embedding,
-            filters=filters,
-            size=50
-        )
-        
-        episodes = []
-        for hit in results['hits']['hits']:
-            source = hit['_source']
-            if anime_name.lower() in source['anime_name'].lower():
-                episodes.append({
-                    'episode_id': source['episode_id'],
-                    'anime_name': source['anime_name'],
-                    'season': source.get('season'),
-                    'episode_number': source['episode_number'],
-                    'title': source['title'],
-                    'level': source['level']
-                })
-        
-        episodes.sort(key=lambda x: (x.get('season') or 0, x['episode_number']))
-        return episodes
+        except Exception as e:
+            logger.error(f"Search by anime failed: {e}")
+            return []
     
     def find_vocabulary_examples(self, episode_id: str, n_examples: int = 10) -> List[Dict]:
         """Find example dialogue lines from a specific episode"""

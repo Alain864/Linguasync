@@ -376,7 +376,7 @@ Respond ONLY with valid JSON (no markdown, no code blocks):
         Execute workflow to generate complete learning package for specific episode
         
         Args:
-            episode_id: Episode identifier
+            episode_id: Episode identifier (e.g., "steins_gate_e04")
             user_level: User's JLPT level
             
         Returns:
@@ -385,24 +385,57 @@ Respond ONLY with valid JSON (no markdown, no code blocks):
         logger.info(f"🚀 Generating learning package for: {episode_id}")
         
         try:
-            # Search for the episode using a real query embedding
-            search_query = f"episode {episode_id}"
-            query_embedding = self.rag.create_embedding(search_query)
+            # Parse episode_id to get anime name and episode number
+            # Format: "anime_name_eXX" or "anime_name_with_underscores_eXX"
+            parts = episode_id.rsplit('_e', 1)
             
-            # Get episode metadata from OpenSearch
-            results = self.rag.opensearch.search(
-                query_vector=query_embedding,
-                filters={"type": "episode", "episode_id": episode_id},
-                size=1
-            )
+            if len(parts) != 2:
+                raise ValueError(f"Invalid episode_id format: {episode_id}. Expected format: 'anime_name_eXX'")
             
-            if not results['hits']['hits']:
-                raise ValueError(f"Episode not found: {episode_id}")
+            anime_slug = parts[0]
+            episode_num_str = parts[1]
             
-            episode_data = results['hits']['hits'][0]['_source']
+            try:
+                episode_num = int(episode_num_str)
+            except ValueError:
+                raise ValueError(f"Invalid episode number in episode_id: {episode_id}")
             
-            # Get examples
-            examples = self.rag.find_vocabulary_examples(episode_id, n_examples=15)
+            # Convert slug to anime name (e.g., "steins_gate" -> "Steins Gate")
+            anime_name = anime_slug.replace('_', ' ').title()
+            
+            logger.info(f"   Searching for: {anime_name} Episode {episode_num}")
+            
+            # Search for all episodes of this anime
+            episodes = self.rag.search_by_anime(anime_name)
+            
+            if not episodes:
+                # Try without title case
+                logger.warning(f"   No episodes found for '{anime_name}', trying alternate formats...")
+                episodes = self.rag.search_by_anime(anime_slug.replace('_', ' '))
+            
+            if not episodes:
+                raise ValueError(f"No episodes found for anime: {anime_name}")
+            
+            # Find the specific episode by episode number
+            episode_data = None
+            for ep in episodes:
+                if ep.get('episode_number') == episode_num:
+                    episode_data = ep
+                    break
+            
+            if not episode_data:
+                available_eps = [ep.get('episode_number') for ep in episodes]
+                raise ValueError(f"Episode {episode_num} not found. Available episodes: {available_eps}")
+            
+            logger.info(f"   ✅ Found: {episode_data['title']}")
+            
+            # Get examples using the actual episode_id from database
+            actual_episode_id = episode_data['episode_id']
+            examples = self.rag.find_vocabulary_examples(actual_episode_id, n_examples=15)
+            
+            if not examples:
+                logger.warning(f"   ⚠️  No vocabulary examples found for {actual_episode_id}")
+                examples = []
             
             # Create state
             state = WorkflowState(
@@ -412,12 +445,12 @@ Respond ONLY with valid JSON (no markdown, no code blocks):
                 n_results=1,
                 matched_episodes=[],
                 selected_episode={
-                    'episode_id': episode_id,
+                    'episode_id': actual_episode_id,
                     'anime_name': episode_data['anime_name'],
                     'title': episode_data['title'],
                     'level': episode_data['level'],
-                    'total_lines': episode_data['total_lines'],
-                    'vocab_count': episode_data['vocab_count']
+                    'total_lines': episode_data.get('total_lines', 0),
+                    'vocab_count': episode_data.get('vocab_count', 0)
                 },
                 vocabulary_examples=examples,
                 recommendation_text="",

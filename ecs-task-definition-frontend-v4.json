@@ -8,7 +8,7 @@
   "containerDefinitions": [
     {
       "name": "linguasync-frontend",
-      "image": "992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-frontend:v3",
+      "image": "992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-frontend:latest",
       "portMappings": [
         {
           "containerPort": 8501,
