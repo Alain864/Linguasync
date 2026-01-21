@@ -22,7 +22,7 @@
             "launchType": "FARGATE",
             "platformVersion": "LATEST",
             "platformFamily": "Linux",
-            "taskDefinition": "arn:aws:ecs:us-east-1:992382843355:task-definition/linguasync-frontend:3",
+            "taskDefinition": "arn:aws:ecs:us-east-1:992382843355:task-definition/linguasync-frontend:4",
             "deploymentConfiguration": {
                 "deploymentCircuitBreaker": {
                     "enable": false,
@@ -37,7 +37,7 @@
                 {
                     "id": "ecs-svc/2091418095651831642",
                     "status": "PRIMARY",
-                    "taskDefinition": "arn:aws:ecs:us-east-1:992382843355:task-definition/linguasync-frontend:3",
+                    "taskDefinition": "arn:aws:ecs:us-east-1:992382843355:task-definition/linguasync-frontend:4",
                     "desiredCount": 1,
                     "pendingCount": 0,
                     "runningCount": 1,
