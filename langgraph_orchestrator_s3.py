@@ -2,12 +2,13 @@
 langgraph_orchestrator_s3.py - LangGraph Orchestrator for S3-based RAG
 
 Updated to work with S3 vector storage instead of OpenSearch.
-API remains identical - just uses different storage backend.
+Enhanced with better level detection and episode matching logic.
 """
 
 import os
 import logging
-from typing import Dict, List, TypedDict, Annotated
+import re
+from typing import Dict, List, TypedDict, Annotated, Optional
 from langgraph.graph import StateGraph, END
 from dotenv import load_dotenv
 
@@ -32,6 +33,7 @@ class WorkflowState(TypedDict):
     n_results: int
     
     # Intermediate
+    detected_level: Optional[str]  # Level detected from query
     matched_episodes: List[Dict]
     selected_episode: Dict
     vocabulary_examples: List[Dict]
@@ -55,7 +57,7 @@ class LangGraphOrchestrator:
     Works with S3-based RAG engine - same interface, different storage.
     
     Workflows:
-    1. Content Recommendation: Find → Analyze → Recommend
+    1. Content Recommendation: Detect Level → Find → Analyze → Recommend
     2. Learning Package: Fetch → Generate → Enhance
     """
     
@@ -73,34 +75,149 @@ class LangGraphOrchestrator:
         logger.info("✅ LangGraph Orchestrator initialized (S3 backend)")
     
     # ========================================================================
+    # Helper Methods
+    # ========================================================================
+    
+    def _extract_level_from_query(self, query: str) -> Optional[str]:
+        """
+        Extract JLPT level from user query
+        
+        Returns:
+            Detected level (N5, N4, N3, N2, N1) or None
+        """
+        if not query:
+            return None
+        
+        query_lower = query.lower()
+        
+        # Direct level mentions
+        for level in ['n5', 'n4', 'n3', 'n2', 'n1']:
+            if level in query_lower:
+                return level.upper()
+        
+        # Common level descriptions
+        level_mappings = {
+            'beginner': 'N5',
+            'basic': 'N5',
+            'elementary': 'N4',
+            'intermediate': 'N3',
+            'upper intermediate': 'N2',
+            'advanced': 'N1',
+            'native': 'N1'
+        }
+        
+        for keyword, level in level_mappings.items():
+            if keyword in query_lower:
+                return level
+        
+        return None
+    
+    def _determine_search_level(self, state: WorkflowState) -> str:
+        """
+        Determine which level to use for search
+        
+        Priority:
+        1. Level detected from query
+        2. User's selected level
+        3. Default to N3
+        """
+        # First, try to extract level from query
+        detected_level = self._extract_level_from_query(state.get('query', ''))
+        
+        if detected_level:
+            logger.info(f"   🎯 Detected level from query: {detected_level}")
+            return detected_level
+        
+        # Use user's selected level if not "All Levels"
+        user_level = state.get('user_level', 'All Levels')
+        if user_level != 'All Levels':
+            logger.info(f"   👤 Using user selected level: {user_level}")
+            return user_level
+        
+        # Default to N3 for broadest appeal
+        logger.info(f"   🎲 No level specified, using default: N3")
+        return 'N3'
+    
+    def _get_all_levels_episodes(self, query: str, anime_filter: Optional[str], n_results: int) -> List[Dict]:
+        """
+        Search across all levels when "All Levels" is selected
+        """
+        all_episodes = []
+        
+        if anime_filter:
+            # Search within specific anime, no level filter
+            episodes = self.rag.search_by_anime(anime_filter, level=None)
+            all_episodes.extend(episodes[:n_results * 2])
+        else:
+            # Search across multiple levels
+            for level in ['N5', 'N4', 'N3', 'N2', 'N1']:
+                episodes = self.rag.search_episodes_by_level(
+                    level=level,
+                    query=query,
+                    n_results=n_results
+                )
+                all_episodes.extend(episodes)
+        
+        # Remove duplicates and sort by relevance
+        seen = set()
+        unique_episodes = []
+        for ep in all_episodes:
+            if ep['episode_id'] not in seen:
+                seen.add(ep['episode_id'])
+                unique_episodes.append(ep)
+        
+        # Sort by relevance score
+        unique_episodes.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
+        
+        return unique_episodes[:n_results * 3]
+    
+    # ========================================================================
     # Recommendation Workflow Nodes
     # ========================================================================
     
     def search_content_node(self, state: WorkflowState) -> WorkflowState:
         """
         Node 1: Search for matching content using S3 RAG
+        Enhanced with level detection from query
         """
-        logger.info(f"🔍 STEP 1: Searching for {state['user_level']} content...")
+        logger.info(f"🔍 STEP 1: Searching for content...")
         
         try:
-            if state.get('anime_filter'):
-                # Search within specific anime
-                episodes = self.rag.search_by_anime(
-                    state['anime_filter'],
-                    level=state['user_level']
-                )
+            user_level = state.get('user_level', 'All Levels')
+            query = state.get('query', '')
+            anime_filter = state.get('anime_filter')
+            n_results = state.get('n_results', 10)
+            
+            # Detect level from query
+            detected_level = self._extract_level_from_query(query)
+            state['detected_level'] = detected_level
+            
+            # Determine search strategy
+            if user_level == 'All Levels' and not detected_level:
+                # Search across all levels
+                logger.info("   📚 Searching across all levels...")
+                episodes = self._get_all_levels_episodes(query, anime_filter, n_results)
             else:
-                # General search
-                episodes = self.rag.search_episodes_by_level(
-                    level=state['user_level'],
-                    query=state.get('query', ''),
-                    n_results=state.get('n_results', 10)
-                )
+                # Use specific level
+                search_level = detected_level if detected_level else user_level
+                
+                if anime_filter:
+                    # Search within specific anime
+                    logger.info(f"   🎬 Searching {anime_filter} at {search_level} level...")
+                    episodes = self.rag.search_by_anime(anime_filter, level=search_level)
+                else:
+                    # General search
+                    logger.info(f"   🔍 Searching at {search_level} level...")
+                    episodes = self.rag.search_episodes_by_level(
+                        level=search_level,
+                        query=query,
+                        n_results=n_results * 2
+                    )
             
             state['matched_episodes'] = episodes
             state['step'] = 'search_complete'
             
-            logger.info(f"   Found {len(episodes)} matching episodes")
+            logger.info(f"   ✅ Found {len(episodes)} matching episodes")
             
         except Exception as e:
             logger.error(f"❌ Search failed: {e}")
@@ -113,6 +230,7 @@ class LangGraphOrchestrator:
     def select_best_episode_node(self, state: WorkflowState) -> WorkflowState:
         """
         Node 2: Select the best episode from matches
+        Enhanced to ensure the selected episode appears in results
         """
         logger.info("🎯 STEP 2: Selecting best episode...")
         
@@ -122,26 +240,45 @@ class LangGraphOrchestrator:
             state['step'] = 'no_results'
             return state
         
-        # Simple selection: highest relevance score
-        # Could be enhanced with more complex logic
+        # Select best episode (highest relevance)
         best_episode = episodes[0]
+        
+        # Ensure this episode is in the top results
+        # If user asked for specific anime/theme, prioritize that
+        query = state.get('query', '').lower()
+        
+        # Check if query mentions specific anime name
+        for ep in episodes[:5]:  # Check top 5
+            anime_name = ep.get('anime_name', '').lower()
+            # If query mentions this anime's name, prioritize it
+            if anime_name and anime_name in query:
+                best_episode = ep
+                logger.info(f"   🎬 Prioritized {ep['anime_name']} (mentioned in query)")
+                break
+        
         state['selected_episode'] = best_episode
         state['step'] = 'episode_selected'
         
-        logger.info(f"   Selected: {best_episode['title']}")
+        logger.info(f"   ✅ Selected: {best_episode['anime_name']} - {best_episode['title']}")
         
         return state
     
     def generate_recommendation_node(self, state: WorkflowState) -> WorkflowState:
         """
         Node 3: Generate personalized recommendation text
+        Uses the enhanced generator with scenario detection
         """
         logger.info("✍️  STEP 3: Generating recommendation...")
         
         try:
+            # Determine effective level for recommendation context
+            effective_level = state.get('detected_level') or state.get('user_level', 'N3')
+            if effective_level == 'All Levels':
+                effective_level = state['matched_episodes'][0].get('level', 'N3')
+            
             recommendation = self.generator.generate_recommendation(
                 episodes=state['matched_episodes'][:3],
-                user_level=state['user_level'],
+                user_level=effective_level,
                 user_query=state.get('query', '')
             )
             
@@ -171,7 +308,7 @@ class LangGraphOrchestrator:
         try:
             # Search for the specific episode
             episodes = self.rag.search_episodes_by_level(
-                level=state['user_level'],
+                level=state.get('user_level', 'N3'),
                 query=state['episode_id'],
                 n_results=20
             )
@@ -230,19 +367,19 @@ class LangGraphOrchestrator:
         logger.info("📚 STEP 3: Generating vocabulary list...")
         
         try:
-            vocab = self.generator.generate_vocabulary_list(
+            vocab_list = self.generator.generate_vocabulary_list(
                 episode_examples=state['vocabulary_examples'],
                 episode_title=state['selected_episode']['title']
             )
             
-            state['vocabulary_list'] = vocab
+            state['vocabulary_list'] = vocab_list
             state['step'] = 'vocabulary_generated'
             
         except Exception as e:
             logger.error(f"❌ Vocabulary generation failed: {e}")
             state['errors'] = state.get('errors', [])
             state['errors'].append(f"Vocabulary error: {str(e)}")
-            state['vocabulary_list'] = "Vocabulary generation failed."
+            state['vocabulary_list'] = "Vocabulary list generation failed."
         
         return state
     
@@ -328,10 +465,11 @@ class LangGraphOrchestrator:
         """
         Execute the recommendation workflow using S3-based RAG
         
-        Workflow: Search → Select → Recommend
+        Workflow: Detect Level → Search → Select → Recommend
         """
         logger.info("="*60)
         logger.info("🚀 Starting Recommendation Workflow (S3 Backend)")
+        logger.info(f"   Level: {user_level}, Query: '{query}'")
         logger.info("="*60)
         
         # Build workflow graph
@@ -357,6 +495,7 @@ class LangGraphOrchestrator:
             'query': query,
             'anime_filter': anime_filter,
             'n_results': n_results,
+            'detected_level': None,
             'matched_episodes': [],
             'selected_episode': {},
             'recommendation_text': "",
@@ -422,6 +561,7 @@ class LangGraphOrchestrator:
             'query': '',
             'anime_filter': None,
             'n_results': 0,
+            'detected_level': None,
             'matched_episodes': [],
             'selected_episode': {},
             'vocabulary_examples': [],
@@ -465,16 +605,27 @@ def test_orchestrator():
     generator = LearningGeneratorV2()
     orchestrator = LangGraphOrchestrator(rag, generator)
     
-    # Test recommendation workflow
-    logger.info("\n📋 Test 1: Recommendation Workflow")
+    # Test recommendation workflow with All Levels
+    logger.info("\n📋 Test 1: All Levels Search")
     result = orchestrator.execute_recommendation_workflow(
-        user_level="N3",
-        query="action anime",
+        user_level="All Levels",
+        query="space bounty hunters",
         n_results=3
     )
     
     logger.info(f"\nResult: {result.get('recommendation_text', 'No recommendation')}")
     logger.info(f"Episodes found: {len(result.get('matched_episodes', []))}")
+    
+    # Test with level in query
+    logger.info("\n📋 Test 2: Level in Query")
+    result = orchestrator.execute_recommendation_workflow(
+        user_level="All Levels",
+        query="relaxing anime about N5 level",
+        n_results=3
+    )
+    
+    logger.info(f"\nDetected level: {result.get('detected_level')}")
+    logger.info(f"Result: {result.get('recommendation_text', 'No recommendation')}")
     
     logger.info("\n✅ Orchestrator test complete!")
 

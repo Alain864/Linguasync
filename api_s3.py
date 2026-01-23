@@ -6,6 +6,7 @@ Drop-in replacement for api_v3.py using S3 instead of OpenSearch
 - Stores everything in S3
 - 95% cost reduction
 - Same API interface
+- Enhanced with "All Levels" support and better recommendation logic
 """
 
 from fastapi import FastAPI, HTTPException, Query
@@ -36,7 +37,7 @@ setup_logging()
 app = FastAPI(
     title="LinguaSync API S3",
     description="AI-powered Japanese learning with S3-based vector storage",
-    version="3.1.0 (S3 Edition)"
+    version="3.2.0 (S3 Edition + Enhanced Recommendations)"
 )
 
 # Add CORS middleware
@@ -78,8 +79,8 @@ def get_components():
 
 class RecommendationRequest(BaseModel):
     """Request model for content recommendations"""
-    user_level: str = Field(..., description="JLPT level (N5, N4, N3, N2, N1)")
-    query: Optional[str] = Field("", description="Optional search query")
+    user_level: str = Field(..., description="JLPT level (N5, N4, N3, N2, N1, or 'All Levels')")
+    query: Optional[str] = Field("", description="Optional search query (can include level)")
     anime_filter: Optional[str] = Field(None, description="Filter by anime name")
     n_results: Optional[int] = Field(3, description="Number of results", ge=1, le=10)
 
@@ -99,7 +100,7 @@ async def root():
     return {
         "status": "online",
         "service": "LinguaSync API S3",
-        "version": "3.1.0",
+        "version": "3.2.0",
         "storage": "S3 + FAISS (no OpenSearch)",
         "cost_savings": "~95% vs OpenSearch Serverless",
         "features": [
@@ -107,7 +108,10 @@ async def root():
             "FAISS similarity search",
             "LangGraph orchestration",
             "Enhanced learning features",
-            "Local caching for performance"
+            "Local caching for performance",
+            "All Levels support",
+            "Smart level detection from queries",
+            "Context-aware recommendations (3 scenarios)"
         ]
     }
 
@@ -124,7 +128,12 @@ async def health_check():
             "episodes_indexed": stats.get('episode_count', 0),
             "anime_count": stats.get('anime_count', 0),
             "vector_store": "operational",
-            "cost_model": "pay-per-request (S3)"
+            "cost_model": "pay-per-request (S3)",
+            "features": {
+                "all_levels_search": True,
+                "level_detection": True,
+                "scenario_based_recommendations": True
+            }
         }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -198,6 +207,10 @@ async def get_anime_episodes(
 async def recommend_content(request: RecommendationRequest):
     """
     Recommend content using LangGraph orchestration with S3 storage
+    Enhanced with:
+    - "All Levels" support
+    - Level detection from query
+    - Scenario-based recommendations
     """
     try:
         logger.info(f"📥 Recommendation request: Level={request.user_level}, Query='{request.query}'")
@@ -217,12 +230,24 @@ async def recommend_content(request: RecommendationRequest):
             logger.warning(f"Workflow errors: {workflow_result['errors']}")
         
         if not workflow_result.get('matched_episodes'):
+            # Provide helpful message based on request
+            message = "No content found. "
+            if request.anime_filter:
+                message += f"Try removing the anime filter or checking the anime name."
+            elif request.user_level != "All Levels":
+                message += f"Try 'All Levels' or a different level."
+            else:
+                message += "Try a different search query!"
+            
             return {
                 "success": False,
-                "message": f"No content found for {request.user_level} level. Try different criteria!"
+                "message": message
             }
         
         logger.info(f"✅ Found {len(workflow_result['matched_episodes'])} episodes")
+        
+        # Determine the effective level for display
+        effective_level = workflow_result.get('detected_level') or request.user_level
         
         return {
             "success": True,
@@ -230,9 +255,14 @@ async def recommend_content(request: RecommendationRequest):
             "episodes": workflow_result['matched_episodes'][:request.n_results],
             "selected_episode": workflow_result.get('selected_episode'),
             "user_level": request.user_level,
+            "detected_level": workflow_result.get('detected_level'),
             "total_found": len(workflow_result['matched_episodes']),
             "workflow_step": workflow_result.get('step', 'unknown'),
-            "storage_backend": "S3 + FAISS"
+            "storage_backend": "S3 + FAISS",
+            "search_info": {
+                "searched_all_levels": request.user_level == "All Levels",
+                "level_detected_from_query": workflow_result.get('detected_level') is not None
+            }
         }
         
     except Exception as e:
@@ -334,7 +364,7 @@ async def get_levels():
 @app.get("/search")
 async def search_content(
     query: str = Query(..., description="Search query"),
-    level: Optional[str] = Query(None, description="JLPT level filter"),
+    level: Optional[str] = Query(None, description="JLPT level filter (or 'All Levels')"),
     anime: Optional[str] = Query(None, description="Anime name filter"),
     limit: int = Query(10, ge=1, le=50)
 ):
@@ -343,19 +373,34 @@ async def search_content(
         rag, _, _ = get_components()
         
         if anime:
-            episodes = rag.search_by_anime(anime, level=level)
-        elif level:
+            episodes = rag.search_by_anime(anime, level=level if level != "All Levels" else None)
+        elif level and level != "All Levels":
             episodes = rag.search_episodes_by_level(
                 level=level,
                 query=query,
                 n_results=limit
             )
         else:
-            episodes = rag.search_episodes_by_level(
-                level="N3",
-                query=query,
-                n_results=limit
-            )
+            # Search across all levels
+            all_episodes = []
+            for search_level in ['N5', 'N4', 'N3', 'N2', 'N1']:
+                eps = rag.search_episodes_by_level(
+                    level=search_level,
+                    query=query,
+                    n_results=limit // 5 + 1
+                )
+                all_episodes.extend(eps)
+            
+            # Remove duplicates and sort by relevance
+            seen = set()
+            episodes = []
+            for ep in all_episodes:
+                if ep['episode_id'] not in seen:
+                    seen.add(ep['episode_id'])
+                    episodes.append(ep)
+            
+            episodes.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
+            episodes = episodes[:limit]
         
         return {
             "success": True,
@@ -383,6 +428,7 @@ async def startup_event():
     logger.info("="*60)
     logger.info("🚀 LinguaSync API S3 Starting...")
     logger.info("💰 Using cost-effective S3 storage instead of OpenSearch")
+    logger.info("✨ Enhanced with All Levels + Smart Recommendations")
     logger.info("="*60)
     
     # Check environment variables
@@ -397,6 +443,7 @@ async def startup_event():
         get_components()
         logger.info("✅ All components initialized")
         logger.info("📦 Vector storage: S3 + FAISS (local cache)")
+        logger.info("🎯 Features: All Levels search + Level detection + 3 recommendation scenarios")
     except Exception as e:
         logger.error(f"❌ Component initialization failed: {e}")
     

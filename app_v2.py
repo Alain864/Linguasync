@@ -244,37 +244,40 @@ def render_episode_card(episode: Dict, user_level: str, show_anime_badge: bool =
         col1, col2 = st.columns([3, 1])
         
         with col1:
-            # Title with season/episode info
-            title = episode['title']
+            st.markdown(f"### {episode.get('title', 'Untitled')}")
+            
+            # Episode metadata
+            metadata_parts = []
             if episode.get('season'):
-                st.subheader(f"📺 {title}")
-            else:
-                st.subheader(f"📺 {title}")
-            st.caption(f"Episode ID: {episode['episode_id']}")
+                metadata_parts.append(f"S{episode['season']}")
+            if episode.get('episode_number'):
+                metadata_parts.append(f"E{episode['episode_number']}")
+            if metadata_parts:
+                st.caption(" • ".join(metadata_parts))
         
         with col2:
-            # Level badge with color coding
-            level_colors = {
-                'N5': '🟢', 'N4': '🔵', 
-                'N3': '🟡', 'N2': '🟠', 'N1': '🔴'
-            }
-            st.markdown(f"### {level_colors.get(episode['level'], '⚪')} {episode['level']}")
+            # Level badge
+            level = episode.get('level', 'N/A')
+            level_color = {
+                'N5': '🟢', 'N4': '🔵', 'N3': '🟡', 'N2': '🟠', 'N1': '🔴'
+            }.get(level, '⚪')
+            st.markdown(f"## {level_color} {level}")
         
-        # Stats in columns
-        cols = st.columns(4)
-        cols[0].metric("Lines", episode.get('total_lines', 'N/A'))
-        cols[1].metric("Vocabulary", episode.get('vocab_count', 'N/A'))
-        
-        # Duration (if available)
+        # Episode stats
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Lines", episode.get('total_lines', 0))
+        col2.metric("Vocabulary", episode.get('vocab_count', 0))
         if episode.get('duration_minutes'):
-            cols[2].metric("Duration", f"{episode['duration_minutes']}m")
-        
-        # Match score (if available)
-        if episode.get('relevance_score'):
-            cols[3].metric("Match", f"{episode['relevance_score']:.2f}")
+            col3.metric("Duration", f"{episode['duration_minutes']}m")
+        elif episode.get('relevance_score'):
+            col3.metric("Match", f"{episode['relevance_score']:.1%}")
         
         # Action button
-        if st.button(f"📚 Get Learning Package", key=f"btn_{episode['episode_id']}"):
+        if st.button(
+            "📚 Get Learning Package", 
+            key=f"learn_{episode.get('episode_id', 'unknown')}",
+            use_container_width=True
+        ):
             st.session_state.selected_episode = episode['episode_id']
             st.session_state.show_package = True
             st.rerun()
@@ -369,7 +372,7 @@ def main():
     if 'selected_episode' not in st.session_state:
         st.session_state.selected_episode = None
     if 'user_level' not in st.session_state:
-        st.session_state.user_level = 'N3'
+        st.session_state.user_level = 'All Levels'
     if 'view_mode' not in st.session_state:
         st.session_state.view_mode = 'search'  # 'search' or 'browse'
     
@@ -382,9 +385,11 @@ def main():
     # Check if showing learning package
     if st.session_state.show_package and st.session_state.selected_episode:
         with st.spinner("🎓 Generating your personalized learning package..."):
+            # Use 'N3' as default if All Levels is selected
+            level_for_package = st.session_state.user_level if st.session_state.user_level != 'All Levels' else 'N3'
             package = get_learning_package(
                 st.session_state.selected_episode,
-                st.session_state.user_level
+                level_for_package
             )
             
             if package and package.get('success'):
@@ -420,19 +425,29 @@ def main():
         # Search Mode
         st.subheader("🎯 Find Your Perfect Content")
         
+        # Search query (moved to top)
+        search_query = st.text_input(
+            "What are you interested in?",
+            placeholder="e.g., 'action', 'daily conversations', 'mystery', 'N5 level anime'..."
+        )
+        
+        # Options row - now below the search query
         col1, col2, col3 = st.columns([2, 2, 2])
         
         with col1:
-            # Level selection
+            # Level selection with "All Levels" as default
             levels = get_levels()
             if levels:
-                level_options = [f"{l['code']} - {l['description']}" for l in levels]
+                level_options = ["All Levels"] + [f"{l['code']} - {l['description']}" for l in levels]
                 selected_level_display = st.selectbox(
                     "Your Japanese Level",
                     level_options,
-                    index=2  # Default to N3
+                    index=0  # Default to "All Levels"
                 )
-                selected_level = selected_level_display.split(" - ")[0]
+                if selected_level_display == "All Levels":
+                    selected_level = "All Levels"
+                else:
+                    selected_level = selected_level_display.split(" - ")[0]
                 st.session_state.user_level = selected_level
             else:
                 st.error("Cannot load levels from API")
@@ -443,24 +458,18 @@ def main():
             anime_list = get_anime_list()
             anime_options = ["All Anime"] + [anime['name'] for anime in anime_list]
             selected_anime_filter = st.selectbox(
-                "Filter by Anime (optional)",
+                "Filter by Anime",
                 anime_options
             )
             anime_filter = None if selected_anime_filter == "All Anime" else selected_anime_filter
         
         with col3:
-            # Number of results
+            # Number of results (1-3)
             n_results = st.selectbox(
                 "Number of Results",
-                [3, 5, 10],
-                index=0
+                [1, 2, 3],
+                index=2  # Default to 3
             )
-        
-        # Search query
-        search_query = st.text_input(
-            "What are you interested in? (optional)",
-            placeholder="e.g., 'action', 'daily conversations', 'mystery'..."
-        )
         
         # Search button
         if st.button("🔍 Find Content", type="primary", use_container_width=True):
@@ -493,7 +502,9 @@ def main():
             
             # Display episodes
             for episode in results['episodes']:
-                render_episode_card(episode, selected_level)
+                # Use the actual user level if specified, otherwise use episode level
+                display_level = st.session_state.user_level if st.session_state.user_level != 'All Levels' else episode.get('level', 'N3')
+                render_episode_card(episode, display_level)
                 st.markdown("---")
         
         else:
@@ -508,8 +519,8 @@ def main():
             - 📊 Enhanced content statistics
             
             **How to use:**
-            1. Select your Japanese level (N5-N1)
-            2. Optionally filter by anime or add interests
+            1. Enter what you're interested in (themes, genres, or difficulty level like "N5")
+            2. Optionally select your Japanese level or filter by anime
             3. Click "Find Content" for AI recommendations
             4. Or switch to "Browse Anime" to explore by series
             """)
