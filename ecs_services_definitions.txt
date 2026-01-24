@@ -130,3 +130,9 @@
                 }
             ],
             "roleArn": "arn:aws:iam::992382843355:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+
+
+
+aws ecs describe-services \
+  --cluster linguasync-cluster \
+  --services linguasync-api-service-s3

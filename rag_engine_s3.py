@@ -550,6 +550,7 @@ class RAGEngineS3:
     def search_episodes_by_level(self, level: str, query: str = "", n_results: int = 10) -> List[Dict]:
         """
         Search for episodes matching level and query
+        Uses smarter query construction for better semantic matching
         
         Args:
             level: JLPT level (N5, N4, N3, N2, N1)
@@ -559,19 +560,37 @@ class RAGEngineS3:
         Returns:
             List of matching episodes
         """
-        # Create search text
-        search_text = f"Japanese {level} level content"
-        if query:
-            search_text = f"{query} {search_text}"
+        # Enhance query with explicit positive/negative terms for better semantic matching
+        query_lower = query.lower() if query else ""
+        search_text = query if query else ""
+        
+        # Add explicit modifiers based on query intent
+        if any(word in query_lower for word in ['relaxing', 'calm', 'peaceful', 'slow', 'chill', 'wholesome', 'gentle', 'cozy']):
+            # Emphasize calm themes
+            search_text += " calm peaceful slice-of-life gentle wholesome cheerful"
+            logger.info(f"   🎯 Enhanced search for relaxing content")
+        
+        elif any(word in query_lower for word in ['action', 'exciting', 'intense', 'fighting', 'battle', 'combat']):
+            # Emphasize action themes
+            search_text += " action exciting intense dynamic fast-paced"
+            logger.info(f"   🎯 Enhanced search for action content")
+        
+        elif any(word in query_lower for word in ['dark', 'psychological', 'thriller', 'mystery', 'suspense']):
+            # Emphasize dark/psychological themes
+            search_text += " dark psychological thriller mystery suspenseful"
+            logger.info(f"   🎯 Enhanced search for psychological content")
+        
+        # Add level context
+        search_text += f" Japanese {level} level content"
         
         # Create embedding
         query_embedding = self.create_embedding(search_text)
         
-        # Search with flexibility (adjacent levels)
+        # Search - the vector search will naturally rank by similarity
         results = self.vector_store.search(
             query_embedding=query_embedding,
             filters={'type': 'episode'},
-            k=n_results * 3
+            k=n_results * 3  # Get extra for level filtering
         )
         
         # Filter by level (allow adjacent levels)

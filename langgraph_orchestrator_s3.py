@@ -302,31 +302,64 @@ class LangGraphOrchestrator:
     def fetch_episode_node(self, state: WorkflowState) -> WorkflowState:
         """
         Node 1: Fetch episode details from S3
+        Enhanced with direct lookup and better error handling
         """
         logger.info(f"📥 STEP 1: Fetching episode {state['episode_id']}...")
         
         try:
-            # Search for the specific episode
-            episodes = self.rag.search_episodes_by_level(
-                level=state.get('user_level', 'N3'),
-                query=state['episode_id'],
-                n_results=20
-            )
+            episode_id = state['episode_id']
             
-            # Find exact match
-            episode = None
-            for ep in episodes:
-                if ep['episode_id'] == state['episode_id']:
-                    episode = ep
-                    break
+            # Try direct lookup first (more reliable)
+            episode_doc = self.rag.vector_store.get_by_id(episode_id, doc_type='episode')
             
-            if not episode:
-                raise ValueError(f"Episode not found: {state['episode_id']}")
-            
-            state['selected_episode'] = episode
-            state['step'] = 'episode_fetched'
-            
-            logger.info(f"   ✅ Found: {episode['title']}")
+            if episode_doc:
+                # Convert to episode format
+                episode = {
+                    'episode_id': episode_doc['episode_id'],
+                    'anime_name': episode_doc['anime_name'],
+                    'season': episode_doc.get('season'),
+                    'episode_number': episode_doc['episode_number'],
+                    'title': episode_doc['title'],
+                    'level': episode_doc['level'],
+                    'total_lines': episode_doc['total_lines'],
+                    'vocab_count': episode_doc['vocab_count'],
+                    'duration_minutes': episode_doc.get('duration', 0) // 60 if episode_doc.get('duration') else 0
+                }
+                
+                state['selected_episode'] = episode
+                state['step'] = 'episode_fetched'
+                logger.info(f"   ✅ Found: {episode['title']}")
+                
+            else:
+                # Fallback: search for the episode
+                logger.info(f"   🔍 Direct lookup failed, trying search...")
+                episodes = self.rag.search_episodes_by_level(
+                    level=state.get('user_level', 'N3'),
+                    query=episode_id,
+                    n_results=50
+                )
+                
+                # Find exact match
+                episode = None
+                for ep in episodes:
+                    if ep['episode_id'] == episode_id:
+                        episode = ep
+                        break
+                
+                if not episode:
+                    # Try partial match on title
+                    for ep in episodes:
+                        if episode_id.lower() in ep['title'].lower() or ep['title'].lower() in episode_id.lower():
+                            episode = ep
+                            logger.info(f"   ⚠️  Using partial match: {ep['title']}")
+                            break
+                
+                if not episode:
+                    raise ValueError(f"Episode not found: {episode_id}")
+                
+                state['selected_episode'] = episode
+                state['step'] = 'episode_fetched'
+                logger.info(f"   ✅ Found: {episode['title']}")
             
         except Exception as e:
             logger.error(f"❌ Episode fetch failed: {e}")
@@ -409,13 +442,15 @@ class LangGraphOrchestrator:
     def generate_cultural_node(self, state: WorkflowState) -> WorkflowState:
         """
         Node 5: Generate cultural context
+        Enhanced to include episode examples for better language nuance analysis
         """
         logger.info("🎎 STEP 5: Generating cultural notes...")
         
         try:
             cultural = self.generator.generate_cultural_notes(
                 episode_title=state['selected_episode']['title'],
-                episode_level=state['selected_episode']['level']
+                episode_level=state['selected_episode']['level'],
+                episode_examples=state.get('vocabulary_examples', [])  # Pass actual dialogue
             )
             
             state['cultural_context'] = cultural

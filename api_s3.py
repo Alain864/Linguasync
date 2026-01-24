@@ -273,9 +273,10 @@ async def recommend_content(request: RecommendationRequest):
 async def get_learning_package(request: LearningPackageRequest):
     """
     Generate a complete learning package using LangGraph orchestration
+    Enhanced error handling for episode lookup issues
     """
     try:
-        logger.info(f"📥 Learning package request: {request.episode_id}")
+        logger.info(f"📥 Learning package request: {request.episode_id} (user level: {request.user_level})")
         
         _, _, orchestrator_instance = get_components()
         
@@ -285,37 +286,61 @@ async def get_learning_package(request: LearningPackageRequest):
             user_level=request.user_level
         )
         
+        # Check for errors
+        if workflow_result.get('errors'):
+            error_msg = '; '.join(workflow_result['errors'])
+            logger.error(f"Workflow errors: {error_msg}")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Episode not found or error generating package: {error_msg}"
+            )
+        
+        # Check if episode was found
+        if not workflow_result.get('selected_episode'):
+            logger.error(f"Episode not found in workflow: {request.episode_id}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Episode '{request.episode_id}' not found. Please try a different episode."
+            )
+        
         episode = workflow_result['selected_episode']
         
         # Build complete package
         package = {
             'episode_id': request.episode_id,
-            'title': episode['title'],
-            'anime_name': episode['anime_name'],
-            'level': episode['level'],
+            'title': episode.get('title', 'Unknown'),
+            'anime_name': episode.get('anime_name', 'Unknown'),
+            'level': episode.get('level', 'N3'),
             'user_level': request.user_level,
-            'vocabulary': workflow_result['vocabulary_list'],
-            'grammar': workflow_result['grammar_notes'],
-            'cultural_notes': workflow_result['cultural_context'],
-            'pre_watch_prep': workflow_result['pre_watch_prep'],
+            'vocabulary': workflow_result.get('vocabulary_list', 'Vocabulary not available'),
+            'grammar': workflow_result.get('grammar_notes', 'Grammar notes not available'),
+            'cultural_notes': workflow_result.get('cultural_context', 'Cultural notes not available'),
+            'pre_watch_prep': workflow_result.get('pre_watch_prep', 'Preparation guide not available'),
             'stats': {
-                'total_lines': episode['total_lines'],
-                'vocab_count': episode['vocab_count'],
-                'level_match': episode['level'] == request.user_level
+                'total_lines': episode.get('total_lines', 0),
+                'vocab_count': episode.get('vocab_count', 0),
+                'level_match': episode.get('level') == request.user_level
             },
             'workflow_step': workflow_result.get('step', 'unknown')
         }
         
-        logger.info(f"✅ Learning package generated for {episode['title']}")
+        logger.info(f"✅ Learning package generated for {episode.get('title', 'Unknown')}")
         
         return {
             "success": True,
             "package": package
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"❌ Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error generating learning package: {str(e)}")
+        logger.error(f"❌ Error generating learning package: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error generating learning package: {str(e)}"
+        )
 
 @app.get("/levels")
 async def get_levels():

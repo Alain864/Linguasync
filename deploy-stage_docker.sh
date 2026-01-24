@@ -30,30 +30,6 @@ docker build -t ${ECR_REPO}:latest -f Dockerfile.stage2 .
 
 
 
-docker tag linguasync-api:with-data 992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-api-production:latest
-
-
-
-this backend stage2
-docker buildx build --platform linux/amd64 -f Dockerfile.stage2 -t linguasync-api-stage2 --load .
-
-docker tag linguasync-api-stage2:latest 992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-api-stage2:latest
-
-docker build -t linguasync-api-stage2:latest -f Dockerfile.stage2 .
-
-
-docker tag linguasync-frontend:v3 992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-frontend:v3
-
-
-
-    aws ecr create-repository --repository-name linguasync-api-stage2 --region us-east-1 
-
-
-    
-
-
-
-
 echo -e "${YELLOW}Step 2: Tagging image...${NC}"
 docker tag ${ECR_REPO}:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest
 docker tag ${ECR_REPO}:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:$(git rev-parse --short HEAD)
@@ -105,3 +81,63 @@ aws ecs describe-services \
     --region ${AWS_REGION} \
     --query 'services[0].{Status:status,Running:runningCount,Desired:desiredCount,TaskDefinition:taskDefinition}' \
     --output table
+
+
+#Docker build. 
+docker tag linguasync-api:with-data 992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-api-production:latest
+
+
+this backend stage2
+docker buildx build --platform linux/amd64 -f Dockerfile.stage2 -t linguasync-api-stage2 --load .
+
+docker tag linguasync-api-stage2:latest 992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-api-stage2:latest
+
+this backend s3
+docker buildx build --platform linux/amd64 -f Dockerfile.s3 -t linguasync-api-s3 --load .
+docker tag linguasync-api-s3:latest 992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-api-s3:latest
+
+this improve stage2
+
+
+docker buildx build --platform linux/amd64 -f Dockerfile.frontend -t linguasync-frontend --load .
+docker tag linguasync-frontend:latest 992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-frontend:latest
+
+
+
+
+
+
+
+docker buildx build --platform linux/amd64 -f Dockerfile.frontend -t linguasync-frontend --load .
+docker tag linguasync-frontend:latest 992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-frontend:latest
+
+
+docker tag linguasync-frontend:latest 992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-frontend:latest
+
+
+
+
+
+docker build -t linguasync-api-stage2:latest -f Dockerfile.stage2 .
+docker tag linguasync-frontend:v3 992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-frontend:v3
+    aws ecr create-repository --repository-name linguasync-api-stage2 --region us-east-1 
+
+
+
+
+# Delete OpenSearch collection
+aws opensearchserverless delete-collection \
+    --id wuq0e50gt8sqkl530ys3 \
+    --region us-east-1
+
+# Delete associated access policies
+aws opensearchserverless delete-access-policy \
+    --name linguasync-access-policy \
+    --type data \
+    --region us-east-1
+
+# Delete network policy
+aws opensearchserverless delete-security-policy \
+    --name linguasync-network-policy \
+    --type network \
+    --region us-east-1

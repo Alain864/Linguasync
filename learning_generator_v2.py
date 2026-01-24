@@ -129,8 +129,12 @@ Task: Create a brief, engaging recommendation (3-4 sentences) that:
 3. Mentions key language characteristics (natural speech, casual/formal, pacing)
 4. Does NOT go into JLPT levels or detailed grammar analysis
 
+IMPORTANT: Make sure your recommendation makes sense for what the user asked for.
+If they asked for "relaxing" content, focus on calm, peaceful aspects.
+If they asked for "action" content, focus on exciting, dynamic aspects.
+
 Format naturally like talking to a friend. Focus on why the anime is a good match thematically.
-Be enthusiastic but concise.
+Be enthusiastic but concise and accurate.
 
 Example style:
 "A perfect fit for [theme] is [Anime Name] where [brief description]. [Unique appeal]. 
@@ -265,6 +269,7 @@ Example structure:
                                   n_words: int = 15) -> str:
         """
         Generate a curated vocabulary list from episode examples
+        WITH ACTUAL SENTENCES FROM THE EPISODE
         
         Args:
             episode_examples: Sample sentences from the episode
@@ -272,46 +277,57 @@ Example structure:
             n_words: Number of vocabulary items to highlight
             
         Returns:
-            Formatted vocabulary list with explanations
+            Formatted vocabulary list with actual episode sentences
         """
+        # Prepare example sentences with their text
         examples_text = "\n".join([
-            f"- {ex['text']} (Level: {ex['level']})"
-            for ex in episode_examples[:10]
+            f"- {ex['text']}"
+            for ex in episode_examples[:15]
         ])
         
         prompt = f"""You are a Japanese language teacher creating a vocabulary study guide.
 
 Episode: {episode_title}
 
-Sample Sentences:
+Dialogue from this episode:
 {examples_text}
 
-Task: Create a vocabulary list of the {n_words} MOST USEFUL words from these examples.
+Task: Create a vocabulary list of the {n_words} MOST USEFUL and INTERESTING words from these actual dialogue lines.
 
-For each word, provide:
-1. The Japanese word (in original script)
-2. Romaji (if helpful)
-3. English meaning
-4. Brief usage note (one sentence)
+CRITICAL FORMAT - Follow this EXACTLY:
 
-Format as:
-**Word** (romaji) - meaning
-_Usage: explanation_
+1) Japanese word (romaji) – English meaning.
+Phrase: [actual Japanese sentence from the dialogue above]
+Romaji: [romaji of that sentence]
+EN: [English translation of that sentence]
 
-Focus on:
-- High-frequency words
-- Words that appear multiple times
-- Words useful beyond this specific episode
-- Mix of verbs, nouns, and key expressions
+2) Japanese word (romaji) – English meaning.
+Phrase: [actual Japanese sentence from the dialogue above]
+Romaji: [romaji of that sentence]
+EN: [English translation of that sentence]
 
-Keep explanations practical and concise."""
+IMPORTANT RULES:
+- Use ACTUAL sentences from the dialogue provided above - don't make up new examples
+- Pick the most interesting, thematic, or useful words for this specific episode
+- The example sentence MUST be from the dialogue I gave you
+- Keep translations natural and context-appropriate
+- Focus on nouns, verbs, and key expressions (not particles or basic words like これ, それ)
+- Pick words that capture the episode's theme or story
+
+Example format:
+1) 時間旅行（じかんりょこう）– time travel.
+Phrase: 時間旅行の実験は危険すぎる。
+Romaji: Jikan ryokō no jikken wa kiken sugiru.
+EN: Time travel experiments are too dangerous.
+
+Generate {n_words} entries following this exact format."""
 
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
-                max_tokens=800
+                max_tokens=1500  # Increased for more detailed output
             )
             
             return response.choices[0].message.content
@@ -325,48 +341,68 @@ Keep explanations practical and concise."""
                                 episode_title: str) -> str:
         """
         Generate grammar explanations based on episode content
+        WITH ACTUAL EXAMPLES FROM THE EPISODE
         
         Args:
             episode_examples: Sample sentences from the episode
             episode_title: Title of the episode
             
         Returns:
-            Grammar notes with contextual explanations
+            Grammar notes with actual episode examples
         """
         examples_text = "\n".join([
             f"- {ex['text']}"
-            for ex in episode_examples[:8]
+            for ex in episode_examples[:12]
         ])
         
         prompt = f"""You are a Japanese grammar expert creating study notes.
 
 Episode: {episode_title}
 
-Sample Dialogue:
+Actual Dialogue from this Episode:
 {examples_text}
 
-Task: Identify 2-3 KEY GRAMMAR PATTERNS that appear in these examples.
+Task: Identify 2-3 KEY GRAMMAR PATTERNS that actually appear in the dialogue above.
 
-For each pattern:
-1. Name the grammar point (e.g., "〜ている form")
-2. Explain what it means
-3. Show an example FROM THE DIALOGUE
-4. Give a simple rule for when to use it
+For each pattern, provide:
+1. **Grammar Point Name** (e.g., "〜ている form", "〜なければならない", etc.)
+2. **What it means** - Brief explanation
+3. **Example from the dialogue** - Use an ACTUAL sentence from above
+   - Show the Japanese sentence
+   - Provide romaji
+   - Give English translation
+4. **When to use it** - Simple usage rule
 
-Make it:
-- Practical and example-driven
-- Connected to the actual dialogue
-- Beginner-friendly explanations
-- Focused on patterns they'll encounter frequently
+FORMAT EXAMPLE:
 
-Format naturally with clear sections."""
+**Grammar Point 1: 〜ている (te-iru form)**
+Meaning: Describes an ongoing action or current state.
+
+Example from dialogue:
+- Japanese: 何を考えているんだ？
+- Romaji: Nani o kangaete irun da?
+- English: What are you thinking about?
+
+Usage: Attach ている to the -te form of verbs to show ongoing actions or states.
+
+---
+
+**Grammar Point 2: [next pattern]**
+[continue...]
+
+CRITICAL:
+- Use ONLY sentences from the dialogue I provided above
+- Don't make up example sentences
+- Pick grammar patterns that actually appear in the episode
+- Keep explanations beginner-friendly
+- Make it practical and example-driven"""
 
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
-                max_tokens=600
+                max_tokens=800
             )
             
             return response.choices[0].message.content
@@ -377,39 +413,97 @@ Format naturally with clear sections."""
     
     def generate_cultural_notes(self,
                                  episode_title: str,
-                                 episode_level: str) -> str:
+                                 episode_level: str,
+                                 episode_examples: List[Dict] = None) -> str:
         """
-        Generate cultural context notes
+        Generate cultural context notes focused on LANGUAGE NUANCES
+        NOT generic cultural facts - focus on idioms, expressions, speech patterns
         
         Args:
             episode_title: Title of the episode/show
             episode_level: JLPT level of content
+            episode_examples: Actual dialogue from the episode
             
         Returns:
-            Cultural context and learning tips
+            Cultural/linguistic insights from the episode
         """
-        prompt = f"""You are a cultural consultant for Japanese language learners.
+        # Include actual dialogue if available
+        dialogue_text = ""
+        if episode_examples and len(episode_examples) > 0:
+            dialogue_text = "\n".join([
+                f"- {ex.get('text', '')}"
+                for ex in episode_examples[:12]
+                if ex.get('text')  # Only include if text exists
+            ])
+            logger.info(f"   📝 Using {len(episode_examples)} dialogue examples for cultural notes")
+        else:
+            logger.warning(f"   ⚠️  No dialogue examples provided for cultural notes")
+        
+        prompt = f"""You are a Japanese language and culture expert analyzing dialogue from an anime episode.
 
-Content: {episode_title}
-Learner Level: JLPT {episode_level}
+Episode: {episode_title}
+Level: JLPT {episode_level}
 
-Task: Provide 2-3 BRIEF cultural insights that will help learners appreciate this content.
+Actual Dialogue from this Episode:
+{dialogue_text if dialogue_text else "IMPORTANT: Dialogue samples should have been provided but are missing. Base your analysis on the anime title and typical themes of this series."}
 
-Focus on:
-- Cultural context that aids comprehension
-- Social norms or customs that appear
-- Communication styles (formal/informal)
-- Cultural references they might miss
+Task: Identify 2-3 JAPANESE LANGUAGE NUANCES, IDIOMS, or CULTURAL REFERENCES {"that appear in this dialogue" if dialogue_text else "that typically appear in this anime"}.
 
-Keep each insight to 1-2 sentences. Be specific and practical.
-Format naturally with emoji bullets (🎌, 🗣️, 💡) for visual interest."""
+DO NOT give generic cultural facts like "Japanese use honorifics" or "bowing is important."
+
+INSTEAD, focus on:
+1. **Idiomatic/Stylized Expressions** {"from the actual dialogue" if dialogue_text else "typical of this anime"}
+   - What it literally means
+   - What it actually means in context
+   - When/why Japanese speakers use this expression
+
+2. **Speech Patterns & Nuances** 
+   - Sentence endings that reveal character/relationship
+   - Formal vs casual shifts
+   - Male/female speech differences
+   - Implied meanings (読み取り)
+
+3. **Cultural References Embedded in Language**
+   - Buddhist/philosophical concepts in phrasing
+   - Historical or literary references
+   - Wordplay or puns (駄洒落)
+   - Pop culture references
+
+FORMAT EXAMPLE:
+
+**Idiomatic Expressions**
+
+■ 始末する (shimatsu suru)
+Literally: "to deal with tidying up"
+In context: "to eliminate someone"
+Usage: Common euphemism in yakuza/crime dramas. Shows how Japanese uses indirect phrasing for harsh realities.
+
+■ 目を覚ませ (me o samase)  
+Literally: "wake your eyes"
+Meaning: "snap out of it" / "face reality"
+Usage: Used when confronting someone living in denial or illusion.
+
+**Cultural/Philosophical References**
+
+"夢を見ている" (yume o mite iru)
+Reference: Buddhist concept of life as impermanent illusion (夢幻 mugen)
+Context: Shows how everyday Japanese is infused with Buddhist philosophy.
+
+---
+
+CRITICAL RULES:
+{"- Base findings on the ACTUAL DIALOGUE provided above" if dialogue_text else "- Base findings on typical language patterns in this anime"}
+- Focus on LANGUAGE nuances, not general culture facts
+- Explain idioms/expressions that learners might misunderstand
+- Show literal vs actual meaning
+- Keep it practical and specific"""
 
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
-                max_tokens=400
+                max_tokens=700
             )
             
             return response.choices[0].message.content
