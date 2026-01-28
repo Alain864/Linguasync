@@ -1,28 +1,28 @@
-(linguasync-stage0-env) alaincl@Alains-MacBook-Air linguasync-stage0 % aws ecs describe-services \
+aws ecs describe-services \
   --cluster linguasync-cluster \
-  --services linguasync-api-service
+  --services linguasync-api-service-s3
 {
     "services": [
         {
-            "serviceArn": "arn:aws:ecs:us-east-1:992382843355:service/linguasync-cluster/linguasync-api-service",
-            "serviceName": "linguasync-api-service",
+            "serviceArn": "arn:aws:ecs:us-east-1:992382843355:service/linguasync-cluster/linguasync-api-service-s3",
+            "serviceName": "linguasync-api-service-s3",
             "clusterArn": "arn:aws:ecs:us-east-1:992382843355:cluster/linguasync-cluster",
             "loadBalancers": [
                 {
                     "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:992382843355:targetgroup/linguasync-api-tg/cb040f572d7c913a",
-                    "containerName": "linguasync-api",
+                    "containerName": "linguasync-api-s3",
                     "containerPort": 8000
                 }
             ],
             "serviceRegistries": [],
             "status": "ACTIVE",
-            "desiredCount": 0,
-            "runningCount": 0,
+            "desiredCount": 1,
+            "runningCount": 1,
             "pendingCount": 0,
             "launchType": "FARGATE",
             "platformVersion": "LATEST",
             "platformFamily": "Linux",
-            "taskDefinition": "arn:aws:ecs:us-east-1:992382843355:task-definition/linguasync-api-production:4",
+            "taskDefinition": "arn:aws:ecs:us-east-1:992382843355:task-definition/linguasync-api-s3:3",
             "deploymentConfiguration": {
                 "deploymentCircuitBreaker": {
                     "enable": false,
@@ -35,15 +35,15 @@
             },
             "deployments": [
                 {
-                    "id": "ecs-svc/1586347819305053925",
+                    "id": "ecs-svc/4031935680298925932",
                     "status": "PRIMARY",
-                    "taskDefinition": "arn:aws:ecs:us-east-1:992382843355:task-definition/linguasync-api-production:4",
-                    "desiredCount": 0,
+                    "taskDefinition": "arn:aws:ecs:us-east-1:992382843355:task-definition/linguasync-api-s3:3",
+                    "desiredCount": 1,
                     "pendingCount": 0,
-                    "runningCount": 0,
+                    "runningCount": 1,
                     "failedTasks": 0,
-                    "createdAt": "2026-01-15T13:11:59.487000-06:00",
-                    "updatedAt": "2026-01-17T03:10:33.304000-06:00",
+                    "createdAt": "2026-01-23T16:49:41.543000-06:00",
+                    "updatedAt": "2026-01-23T22:52:40.513000-06:00",
                     "launchType": "FARGATE",
                     "platformVersion": "1.4.0",
                     "platformFamily": "Linux",
@@ -60,11 +60,17 @@
                         }
                     },
                     "rolloutState": "COMPLETED",
-                    "rolloutStateReason": "ECS deployment ecs-svc/1586347819305053925 completed."
+                    "rolloutStateReason": "ECS deployment ecs-svc/4031935680298925932 completed."
                 }
             ],
             "roleArn": "arn:aws:iam::992382843355:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
-(linguasync-stage0-env) alaincl@Alains-MacBook-Air linguasync-stage0 % 
+
+
+
+
+
+
+
 (linguasync-stage0-env) alaincl@Alains-MacBook-Air linguasync-stage0 % aws ecs describe-services \
   --cluster linguasync-cluster \
   --services linguasync-frontend-service
@@ -131,6 +137,8 @@
                 }
             ],
             "roleArn": "arn:aws:iam::992382843355:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+
+
 
 
 
