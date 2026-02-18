@@ -1,27 +1,34 @@
 # LinguaSync Stage 0 - Local Prototype
 
-## 🎯 What This Does
-
-A working RAG system that helps language learners find appropriate Japanese content (anime/dramas) based on their level, with vocabulary lists and grammar explanations.
+A working RAG system that helps language learners find appropriate Japanese anime content (Chainsaw Man, Jujutsu Kaisen) based on their level, with vocabulary lists and grammar explanations. Includes LangGraph orchestration and supports both local ChromaDB and AWS OpenSearch deployments.
 
 ## 📁 Project Structure
 
 ```
 linguasync-stage0/
-├── README.md                  # This file
-├── requirements.txt           # Python dependencies
-├── .env                       # API keys (create this)
-├── subtitle_processor.py      # Parse and analyze subtitles
-├── rag_engine.py             # Vector storage and retrieval
-├── learning_generator.py     # LLM content generation
-├── api.py                    # FastAPI backend
-├── app.py                    # Streamlit frontend
+├── README.md                          # This file
+├── requirements-stage2.txt            # Python dependencies
+├── .env                               # API keys (create this)
+├── subtitle_processor_v3.py           # Parse and analyze subtitles
+├── rag_engine_v3.py                   # Vector storage and retrieval
+├── learning_generator_v2.py           # LLM content generation
+├── api_v3.py                          # FastAPI backend
+├── app_v2.py                          # Streamlit frontend
+├── langgraph_orchestrator.py          # LangGraph orchestration
+├── docker-compose.yml                 # Docker Compose for local dev
+├── Dockerfile.stage2                  # Docker for Stage 2
+├── deploy-stage_docker.sh             # AWS deployment script
 ├── data/
-│   └── subtitles/            # Place your SRT files here
-└── chroma_db/                # Auto-created vector database
+│   ├── processed_episodes_v3.json     # Processed episode data
+│   └── subtitles/                    # SRT files
+│       ├── Chainsaw Man/             # Sample anime subtitles
+│       └── Jujutsu Kaisen/
+└── chroma_db_v2/                      # Vector database
 ```
 
 ## 🚀 Quick Start
+
+### Option 1: Local Development (No Docker)
 
 ### 1. Install Dependencies
 
@@ -31,7 +38,7 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install packages
-pip install -r requirements.txt
+pip install -r requirements-stage2.txt
 ```
 
 ### 2. Set Up API Keys
@@ -44,46 +51,52 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 ### 3. Add Sample Subtitles
 
-Place Japanese subtitle files (.srt format) in `data/subtitles/`:
-
-```
-data/subtitles/
-├── attack_on_titan_s01e01.srt
-├── your_name_movie.srt
-└── steins_gate_s01e01.srt
-```
+The project includes sample subtitles for Chainsaw Man and Jujutsu Kaisen in `data/subtitles/`.
 
 ### 4. Process Subtitles (One-time)
 
 ```bash
 # This analyzes subtitles and creates the vector database
-python subtitle_processor.py
+python subtitle_processor_v3.py
 ```
 
 ### 5. Start the Backend
 
 ```bash
 # In one terminal
-uvicorn api:app --reload --port 8000
+uvicorn api_v3:app --reload --port 8000
 ```
 
 ### 6. Start the Frontend
 
 ```bash
 # In another terminal
-streamlit run app.py
+streamlit run app_v2.py
 ```
 
 Visit `http://localhost:8501` to use LinguaSync!
 
+### Option 2: Docker Compose (Recommended)
+
+```bash
+# 1. Create .env file with OPENAI_API_KEY
+# 2. Run Docker Compose
+docker-compose up
+
+# Access:
+# - API: http://localhost:8000
+# - Frontend: http://localhost:8501
+# - API Docs: http://localhost:8000/docs
+```
+
 ## 🧪 Testing the System
 
-1. **Process Sample Data**: Run `subtitle_processor.py` to analyze subtitles
+1. **Process Sample Data**: Run `python subtitle_processor_v3.py` to analyze subtitles
 2. **Query Recommendations**: Use the Streamlit interface to ask for content recommendations
 3. **Test Queries**:
    - "I'm N4 level, recommend something engaging"
    - "Find content with simple dialogue"
-   - "Show me vocabulary from Attack on Titan episode 1"
+   - "Show me vocabulary from Chainsaw Man episode 1"
 
 ## 📝 Sample Subtitle Format
 
@@ -108,22 +121,24 @@ Expected SRT format:
 ✅ Vocabulary extraction
 ✅ Grammar pattern detection
 ✅ Simple web interface
+✅ LangGraph orchestration (Stage 2)
+✅ AWS S3 integration (S3 versions)
+✅ OpenSearch support (Stage 2)
 
 ## 🚫 What's NOT in Stage 0
 
-❌ AWS deployment
 ❌ User authentication
 ❌ Progress tracking
 ❌ Audio analysis
-❌ Multi-language support
-❌ Advanced orchestration
+❌ Multi-language support (beyond Japanese)
+❌ Production deployment (available in Stage 2)
 
 ## 📊 Architecture Overview
 
 ```
-User Query → Streamlit UI → FastAPI → RAG Engine → OpenAI
+User Query → Streamlit UI → FastAPI → LangGraph Orchestrator → RAG Engine → OpenAI
                                           ↓
-                                      ChromaDB
+                                      ChromaDB / OpenSearch
 ```
 
 ## 🐛 Troubleshooting
@@ -132,30 +147,19 @@ User Query → Streamlit UI → FastAPI → RAG Engine → OpenAI
 - **Solution**: MeCab requires system installation. For Stage 0, we use simple character-based analysis.
 
 **Problem**: "ChromaDB connection error"
-- **Solution**: Delete `chroma_db/` folder and re-run `subtitle_processor.py`
+- **Solution**: Delete `chroma_db_v2/` folder and re-run `python subtitle_processor_v3.py`
 
 **Problem**: "No content found"
 - **Solution**: Ensure subtitle files are in `data/subtitles/` and you've run the processor
 
 ## 🎓 Next Steps
 
-Once Stage 0 is validated:
-- Stage 1: AWS deployment with OpenSearch
-- Stage 2: LangGraph orchestration
-- Stage 3: Content library scaling
-- Stage 4: User profiles & progress
-- Stage 5: Spanish language support
+- **Stage 1**: Docker deployment with persistent storage
+- **Stage 2**: AWS deployment with OpenSearch and LangGraph (partially implemented)
+- **Stage 3**: Content library scaling
+- **Stage 4**: User profiles & progress tracking
+- **Stage 5**: Multi-language support
 
+## 🚀 Deployment
 
-withouth docker API
-uvicorn api:app --reload --port 8000
-
-Streamlit
-streamlit run app.py
-
-
-mit docker-compose
-Access:
-#      - API: http://localhost:8000
-#      - Frontend: http://localhost:8501
-#      - API Docs: http://localhost:8000/docs
+For AWS ECS deployment, see `deploy-stage_docker.sh` and the ECS task definitions.

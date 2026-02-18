@@ -107,17 +107,6 @@ docker tag linguasync-frontend:latest 992382843355.dkr.ecr.us-east-1.amazonaws.c
 
 
 
-
-docker buildx build --platform linux/amd64 -f Dockerfile.frontend -t linguasync-frontend --load .
-docker tag linguasync-frontend:latest 992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-frontend:latest
-
-
-docker tag linguasync-frontend:latest 992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-frontend:latest
-
-
-
-
-
 docker build -t linguasync-api-stage2:latest -f Dockerfile.stage2 .
 docker tag linguasync-frontend:v3 992382843355.dkr.ecr.us-east-1.amazonaws.com/linguasync-frontend:v3
     aws ecr create-repository --repository-name linguasync-api-stage2 --region us-east-1 
