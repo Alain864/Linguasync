@@ -510,19 +510,19 @@ def main():
         else:
             # Welcome message
             st.info("""
-            👋 **Welcome to SemanticTutor!**
-            
-            **New in Stage 1:**
-            - 🎌 Browse content by anime series
-            - 📺 See season and episode information
-            - 🔍 Filter search by specific anime
-            - 📊 Enhanced content statistics
+            **Welcome to SemanticTutor!**
             
             **How to use:**
             1. Enter what you're interested in (themes, genres, or difficulty level like "N5")
             2. Optionally select your Japanese level or filter by anime
             3. Click "Find Content" for AI recommendations
-            4. Or switch to "Browse Anime" to explore by series
+            4. Or switch to "Browse Anime" to explore library
+            
+            **You can also:**
+            - 🎌 Browse content by anime series
+            - 📺 See season and episode information
+            - 🔍 Filter search by specific anime
+            - 📊 Enhanced content statistics
             """)
 
 
