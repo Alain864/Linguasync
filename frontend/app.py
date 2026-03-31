@@ -190,7 +190,7 @@ def render_sidebar():
         st.sidebar.success("🟢 API Connected")
     else:
         st.sidebar.error("🔴 API Offline")
-        st.sidebar.info("Run: uvicorn api_v2:app --reload")
+        st.sidebar.info("Run: uvicorn backend.api:app --reload")
         return
     
     # Statistics

@@ -1,5 +1,5 @@
 """
-langgraph_orchestrator_s3.py - LangGraph Orchestrator for S3-based RAG
+backend/orchestration/langgraph_orchestrator.py - LangGraph Orchestrator for S3-based RAG
 
 Updated to work with S3 vector storage instead of OpenSearch.
 Enhanced with better level detection and episode matching logic.
@@ -628,8 +628,8 @@ class LangGraphOrchestrator:
 
 def test_orchestrator():
     """Test the S3-based orchestrator"""
-    from rag_engine_s3 import RAGEngineS3
-    from learning_generator_v2 import LearningGeneratorV2
+    from backend.rag.engine import RAGEngineS3
+    from backend.generation.learning_generator import LearningGeneratorV2
     
     logger.info("="*60)
     logger.info("🧪 Testing S3-Based LangGraph Orchestrator")

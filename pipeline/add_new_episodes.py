@@ -12,11 +12,17 @@ This prevents losing your existing data!
 """
 
 import os
+import sys
 import json
 import logging
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+load_dotenv(ROOT_DIR / ".env")
 
 # Set up logging
 logging.basicConfig(
@@ -25,7 +31,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from rag_engine_s3 import RAGEngineS3
+from backend.rag.engine import RAGEngineS3
 
 def add_new_episodes():
     """Add new episodes to existing index"""
@@ -116,7 +122,7 @@ def add_new_episodes():
     logger.info("   aws ecs update-service --cluster linguasync-cluster \\")
     logger.info("     --service linguasync-api-service-s3 --force-new-deployment")
     logger.info("\n2. Or restart local API:")
-    logger.info("   uvicorn api_s3:app --reload --port 8000")
+    logger.info("   uvicorn backend.api:app --reload --port 8000")
 
 
 if __name__ == "__main__":

@@ -1,165 +1,186 @@
-# LinguaSync Stage 0 - Local Prototype
+# LinguaSync Stage 0
 
-A working RAG system that helps language learners find appropriate Japanese anime content (Chainsaw Man, Jujutsu Kaisen) based on their level, with vocabulary lists and grammar explanations. Includes LangGraph orchestration and supports both local ChromaDB and AWS OpenSearch deployments.
+LinguaSync is a prototype Japanese-learning app that recommends anime episodes based on JLPT level and generates study material from subtitle data. The current implementation uses a Streamlit frontend, a FastAPI backend, LangGraph orchestration, OpenAI for generation, and an S3-backed FAISS vector store for retrieval.
 
-## 📁 Project Structure
+## Architecture
 
+```text
+User Query
+  -> Streamlit UI (frontend/app.py)
+  -> FastAPI API (backend/api.py)
+  -> LangGraph Orchestrator (backend/orchestration/langgraph_orchestrator.py)
+  -> RAG Engine (backend/rag/engine.py)
+  -> S3 + FAISS + OpenAI
 ```
+
+## Project Structure
+
+```text
 linguasync-stage0/
-├── README.md                          # This file
-├── requirements-stage2.txt            # Python dependencies
-├── .env                               # API keys (create this)
-├── subtitle_processor_v3.py           # Parse and analyze subtitles
-├── rag_engine_v3.py                   # Vector storage and retrieval
-├── learning_generator_v2.py           # LLM content generation
-├── api_v3.py                          # FastAPI backend
-├── app_v2.py                          # Streamlit frontend
-├── langgraph_orchestrator.py          # LangGraph orchestration
-├── docker-compose.yml                 # Docker Compose for local dev
-├── Dockerfile.stage2                  # Docker for Stage 2
-├── deploy-stage_docker.sh             # AWS deployment script
+├── README.md
+├── .env
+├── .env.example
+├── docker-compose.yml
+├── backend/
+│   ├── api.py
+│   ├── generation/
+│   │   └── learning_generator.py
+│   ├── orchestration/
+│   │   └── langgraph_orchestrator.py
+│   └── rag/
+│       └── engine.py
 ├── data/
-│   ├── processed_episodes_v3.json     # Processed episode data
-│   └── subtitles/                    # SRT files
-│       ├── Chainsaw Man/             # Sample anime subtitles
-│       └── Jujutsu Kaisen/
-└── chroma_db_v2/                      # Vector database
+│   ├── processed/
+│   │   └── episodes.json
+│   └── subtitles/
+├── docker/
+│   ├── Dockerfile.backend
+│   └── Dockerfile.frontend
+├── frontend/
+│   └── app.py
+├── pipeline/
+│   ├── add_new_episodes.py
+│   └── subtitle_processor.py
+├── requirements/
+│   └── backend.txt
+├── scripts/
+│   └── debug_index.py
+└── tests/
 ```
 
-## 🚀 Quick Start
+## Main Features
 
-### Option 1: Local Development (No Docker)
+- Recommend anime episodes by JLPT level (`N5` to `N1`) or `All Levels`
+- Detect level hints directly from user queries
+- Search by anime title or free-text preference
+- Generate recommendation text, vocabulary help, grammar notes, cultural notes, and pre-watch prep
+- Store and search embeddings with FAISS while persisting index artifacts in S3
 
-### 1. Install Dependencies
+## Environment Variables
 
-```bash
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+Create a `.env` file in the project root. You can start from `.env.example`.
 
-# Install packages
-pip install -r requirements-stage2.txt
-```
-
-### 2. Set Up API Keys
-
-Create a `.env` file in the project root:
+Required values:
 
 ```env
-OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_API_KEY=your_openai_api_key
+S3_BUCKET_NAME=your_s3_bucket_name
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
 ```
 
-### 3. Add Sample Subtitles
+Optional:
 
-The project includes sample subtitles for Chainsaw Man and Jujutsu Kaisen in `data/subtitles/`.
+```env
+AWS_SESSION_TOKEN=your_aws_session_token
+```
 
-### 4. Process Subtitles (One-time)
+## Local Development
+
+### 1. Install dependencies
 
 ```bash
-# This analyzes subtitles and creates the vector database
-python subtitle_processor_v3.py
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements/backend.txt
 ```
 
-### 5. Start the Backend
+### 2. Start the backend
 
 ```bash
-# In one terminal
-uvicorn api_v3:app --reload --port 8000
+uvicorn backend.api:app --reload --port 8000
 ```
 
-### 6. Start the Frontend
+### 3. Start the frontend
 
 ```bash
-# In another terminal
-streamlit run app_v2.py
+streamlit run frontend/app.py
 ```
 
-Visit `http://localhost:8501` to use LinguaSync!
+### 4. Open the app
 
-### Option 2: Docker Compose (Recommended)
+- Frontend: `http://localhost:8501`
+- API: `http://localhost:8000`
+- API docs: `http://localhost:8000/docs`
+
+## Docker Compose
+
+The compose setup builds:
+
+- Backend from `docker/Dockerfile.backend`
+- Frontend from `docker/Dockerfile.frontend`
+
+Run:
 
 ```bash
-# 1. Create .env file with OPENAI_API_KEY
-# 2. Run Docker Compose
-docker-compose up
-
-# Access:
-# - API: http://localhost:8000
-# - Frontend: http://localhost:8501
-# - API Docs: http://localhost:8000/docs
+docker compose up --build
 ```
 
-## 🧪 Testing the System
+Stop:
 
-1. **Process Sample Data**: Run `python subtitle_processor_v3.py` to analyze subtitles
-2. **Query Recommendations**: Use the Streamlit interface to ask for content recommendations
-3. **Test Queries**:
-   - "I'm N4 level, recommend something engaging"
-   - "Find content with simple dialogue"
-   - "Show me vocabulary from Chainsaw Man episode 1"
-
-## 📝 Sample Subtitle Format
-
-Expected SRT format:
-
-```
-1
-00:00:01,000 --> 00:00:04,000
-これは日本語の字幕です。
-
-2
-00:00:05,000 --> 00:00:08,000
-次の行です。
+```bash
+docker compose down
 ```
 
-## 🔧 What's Working in Stage 0
+Open:
 
-✅ Subtitle parsing (Japanese SRT files)
-✅ Basic Japanese text analysis
-✅ Vector embeddings with ChromaDB
-✅ Content recommendation by level
-✅ Vocabulary extraction
-✅ Grammar pattern detection
-✅ Simple web interface
-✅ LangGraph orchestration (Stage 2)
-✅ AWS S3 integration (S3 versions)
-✅ OpenSearch support (Stage 2)
+- Frontend: `http://localhost:8501`
+- API: `http://localhost:8000`
+- API docs: `http://localhost:8000/docs`
 
-## 🚫 What's NOT in Stage 0
+## API Endpoints
 
-❌ User authentication
-❌ Progress tracking
-❌ Audio analysis
-❌ Multi-language support (beyond Japanese)
-❌ Production deployment (available in Stage 2)
+- `GET /health` - service and storage health
+- `GET /stats` - content library statistics
+- `GET /anime` - available anime series
+- `GET /anime/{anime_name}` - episodes for one series
+- `GET /levels` - JLPT level metadata
+- `GET /search` - flexible search endpoint
+- `POST /recommend` - recommendation workflow
+- `POST /learning-package` - full learning package for one episode
 
-## 📊 Architecture Overview
+## Data Pipeline
 
+- `pipeline/subtitle_processor.py` processes subtitle files and writes structured episode data to `data/processed/episodes.json`
+- `backend/rag/engine.py` creates embeddings, builds a FAISS index, and syncs index artifacts to S3
+- `pipeline/add_new_episodes.py` updates an existing S3-backed index with additional episodes
+- `scripts/debug_index.py` helps inspect the stored index and metadata
+
+## Utility Commands
+
+Process subtitle data:
+
+```bash
+python -m pipeline.subtitle_processor
 ```
-User Query → Streamlit UI → FastAPI → LangGraph Orchestrator → RAG Engine → OpenAI
-                                          ↓
-                                      ChromaDB / OpenSearch
+
+Add newly uploaded episodes to the S3-backed index:
+
+```bash
+python -m pipeline.add_new_episodes
 ```
 
-## 🐛 Troubleshooting
+Inspect the vector store:
 
-**Problem**: "ModuleNotFoundError: No module named 'MeCab'"
-- **Solution**: MeCab requires system installation. For Stage 0, we use simple character-based analysis.
+```bash
+python -m scripts.debug_index
+```
 
-**Problem**: "ChromaDB connection error"
-- **Solution**: Delete `chroma_db_v2/` folder and re-run `python subtitle_processor_v3.py`
+## Current Dataset
 
-**Problem**: "No content found"
-- **Solution**: Ensure subtitle files are in `data/subtitles/` and you've run the processor
+The checked-in processed dataset is stored in `data/processed/episodes.json`. It contains anime episode metadata, subtitle timing, vocabulary extraction, and JLPT-level estimates for the indexed episodes currently used by the app.
 
-## 🎓 Next Steps
+## Troubleshooting
 
-- **Stage 1**: Docker deployment with persistent storage
-- **Stage 2**: AWS deployment with OpenSearch and LangGraph (partially implemented)
-- **Stage 3**: Content library scaling
-- **Stage 4**: User profiles & progress tracking
-- **Stage 5**: Multi-language support
+Problem: API container starts but `/health` fails
+- Check that `OPENAI_API_KEY`, `S3_BUCKET_NAME`, and `AWS_REGION` are set
+- Confirm the configured AWS credentials can access the S3 bucket
 
-## 🚀 Deployment
+Problem: Frontend loads but cannot reach backend
+- Verify the `api` service is healthy
+- Confirm the frontend is using `API_BASE_URL=http://api:8000` inside Docker
 
-For AWS ECS deployment, see `deploy-stage_docker.sh` and the ECS task definitions.
+Problem: No recommendations are returned
+- Confirm the S3 bucket contains the FAISS index and metadata files
+- Check logs from the `api` service for retrieval or OpenAI errors

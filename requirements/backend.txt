@@ -1,4 +1,4 @@
-# requirements_s3.txt - Python dependencies for S3-based backend
+# requirements/backend.txt - Python dependencies for S3-based backend
 # Replaces OpenSearch with FAISS for local vector search
 
 # Core API

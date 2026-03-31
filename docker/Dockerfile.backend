@@ -1,4 +1,4 @@
-# Dockerfile.s3 - Backend with S3 vector storage (no OpenSearch)
+# Dockerfile.backend - Backend with S3 vector storage (no OpenSearch)
 
 FROM python:3.11-slim
 
@@ -11,16 +11,13 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
-COPY requirements_s3.txt .
+COPY requirements/backend.txt ./requirements/backend.txt
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements_s3.txt
+RUN pip install --no-cache-dir -r requirements/backend.txt
 
 # Copy application files
-COPY rag_engine_s3.py .
-COPY learning_generator_v2.py .
-COPY langgraph_orchestrator_s3.py .
-COPY api_s3.py .
+COPY backend ./backend
 
 # Expose port
 EXPOSE 8000
@@ -30,4 +27,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application
-CMD ["uvicorn", "api_s3:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "8000"]

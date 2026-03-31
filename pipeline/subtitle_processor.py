@@ -1,5 +1,5 @@
 """
-subtitle_processor_v3.py - Subtitle Processor for Stage 2
+pipeline/subtitle_processor.py - Subtitle Processor for Stage 2
 
 New features:
 - Multi-folder structure: data/subtitles/Anime_Name/season_X/episode_Y.srt
@@ -540,8 +540,8 @@ def main():
         return
     
     # Save locally
-    output_file = "data/processed_episodes_v3.json"
-    os.makedirs("data", exist_ok=True)
+    output_file = "data/processed/episodes.json"
+    os.makedirs("data/processed", exist_ok=True)
     
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(episodes, f, ensure_ascii=False, indent=2)
@@ -561,7 +561,7 @@ def main():
     for anime, eps in anime_summary.items():
         logger.info(f"   {anime}: {len(eps)} episodes")
     
-    logger.info("\n🚀 Next: Run rag_engine_v3.py to create vector embeddings")
+    logger.info("\n🚀 Next: index the processed episodes with the backend RAG pipeline")
 
 
 if __name__ == "__main__":

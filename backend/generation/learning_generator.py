@@ -1,5 +1,5 @@
 """
-learning_generator_v2.py - Enhanced Learning Generator for Stage 2
+backend/generation/learning_generator.py - Enhanced Learning Generator for Stage 2
 
 New features:
 - Pre-watch vocabulary preparation

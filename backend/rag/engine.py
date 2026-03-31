@@ -1,5 +1,5 @@
 """
-rag_engine_s3.py - S3-Based RAG Engine (OpenSearch Replacement)
+backend/rag/engine.py - S3-Based RAG Engine (OpenSearch Replacement)
 
 Cost-effective alternative using:
 - S3 for data storage

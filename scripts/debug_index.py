@@ -6,16 +6,22 @@ This helps diagnose why searches aren't returning results.
 """
 
 import os
+import sys
 import json
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+load_dotenv(ROOT_DIR / ".env")
 
 # Set environment variables if not already set
 os.environ.setdefault('S3_BUCKET_NAME', 'linguasync-data')
 os.environ.setdefault('AWS_REGION', 'us-east-1')
 
-from rag_engine_s3 import RAGEngineS3
+from backend.rag.engine import RAGEngineS3
 
 def debug_index():
     """Debug the vector store contents"""

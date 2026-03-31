@@ -1,5 +1,5 @@
 """
-api_s3.py - FastAPI Backend with S3-Based RAG Engine
+backend/api.py - FastAPI Backend with S3-Based RAG Engine
 
 Drop-in replacement for api_v3.py using S3 instead of OpenSearch
 - Uses FAISS for vector search
@@ -16,9 +16,9 @@ from typing import Optional, List, Dict
 import os
 import logging
 
-from rag_engine_s3 import RAGEngineS3
-from learning_generator_v2 import LearningGeneratorV2
-from langgraph_orchestrator_s3 import LangGraphOrchestrator
+from backend.rag.engine import RAGEngineS3
+from backend.generation.learning_generator import LearningGeneratorV2
+from backend.orchestration.langgraph_orchestrator import LangGraphOrchestrator
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -479,7 +479,7 @@ async def startup_event():
 
 
 # ============================================================================
-# Run with: uvicorn api_s3:app --reload --port 8000
+# Run with: uvicorn backend.api:app --reload --port 8000
 # ============================================================================
 
 if __name__ == "__main__":
